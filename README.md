@@ -30,6 +30,18 @@ const message = parsed.match({
 });
 ```
 
+## Contents
+
+- [Creating Results](#creating-results)
+- [Transforming Results](#transforming-results)
+- [Handling Errors](#handling-errors)
+- [Extracting Values](#extracting-values)
+- [Generator Composition](#generator-composition)
+- [Retry Support](#retry-support)
+- [Tagged Errors](#tagged-errors)
+- [Serialization](#serialization)
+- [API Reference](#api-reference)
+
 ## Creating Results
 
 ```ts
