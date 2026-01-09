@@ -153,6 +153,29 @@ TaggedError.match(error, {
 });
 ```
 
+## Serialization
+
+Rehydrate Results from JSON for storage or network transfer:
+
+```ts
+// Serialize a Result to JSON (e.g., for storage or network transfer)
+const original = Result.ok(42);
+const serialized = JSON.stringify(original);
+// '{"_tag":"Ok","value":42}'
+
+// Rehydrate the serialized Result back to a Result instance
+const hydrated = Result.hydrate(JSON.parse(serialized));
+// Result<number, never>
+
+// Now you can use Result methods again
+const doubled = hydrated.map((x) => x * 2); // Ok(84)
+
+// Works with Err too
+const errResult = Result.err(new Error("failed"));
+const rehydrated = Result.hydrate(JSON.parse(JSON.stringify(errResult)));
+// Result<never, Error>
+```
+
 ## API Reference
 
 ### Result
