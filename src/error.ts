@@ -25,16 +25,35 @@ export abstract class TaggedError extends Error {
     }
   }
 
+  /**
+   * Type guard for any Error instance.
+   *
+   * @example
+   * if (TaggedError.isError(value)) { value.message }
+   */
   static override isError(value: unknown): value is Error {
     return value instanceof Error;
   }
 
+  /**
+   * Type guard for TaggedError instances.
+   *
+   * @example
+   * if (TaggedError.isTaggedError(value)) { value._tag }
+   */
   static isTaggedError(value: unknown): value is TaggedError {
     return value instanceof Error && "_tag" in value && typeof value._tag === "string";
   }
 
   /**
    * Exhaustive pattern match on tagged error union.
+   * Requires handlers for all _tag variants.
+   *
+   * @template E Tagged error union type.
+   * @template T Return type.
+   * @param error Error to match.
+   * @param handlers Object mapping _tag to handler function.
+   * @returns Result of matched handler.
    *
    * @example
    * TaggedError.match(error, {
@@ -55,7 +74,14 @@ export abstract class TaggedError extends Error {
   }
 
   /**
-   * Partial pattern match with fallback.
+   * Partial pattern match with fallback for unhandled tags.
+   *
+   * @template E Tagged error union type.
+   * @template T Return type.
+   * @param error Error to match.
+   * @param handlers Partial object mapping _tag to handler function.
+   * @param otherwise Fallback handler for unmatched tags.
+   * @returns Result of matched handler or otherwise.
    *
    * @example
    * TaggedError.matchPartial(error, {

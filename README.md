@@ -68,6 +68,22 @@ Result.map(result, (x) => x + 1);
 Result.map((x) => x + 1)(result); // Pipeable
 ```
 
+## Handling Errors
+
+```ts
+// Transform error type
+const result = fetchUser(id).mapError(
+  (e) => new AppError(`Failed to fetch user: ${e.message}`),
+);
+
+// Recover from specific errors
+const result = fetchUser(id).match({
+  ok: (user) => Result.ok(user),
+  err: (e) =>
+    e._tag === "NotFoundError" ? Result.ok(defaultUser) : Result.err(e),
+});
+```
+
 ## Extracting Values
 
 ```ts
@@ -151,6 +167,13 @@ TaggedError.match(error, {
   NotFoundError: (e) => `Missing: ${e.id}`,
   ValidationError: (e) => `Bad field: ${e.field}`,
 });
+
+// Partial matching with fallback
+TaggedError.matchPartial(
+  error,
+  { NotFoundError: (e) => `Missing: ${e.id}` },
+  (e) => `Unknown error: ${e.message}`,
+);
 ```
 
 ## Serialization
@@ -205,6 +228,15 @@ const rehydrated = Result.hydrate(JSON.parse(JSON.stringify(errResult)));
 | `.unwrapOr(fallback)` | Extract value or return fallback      |
 | `.tap(fn)`            | Side effect on success                |
 | `.tapAsync(fn)`       | Async side effect on success          |
+
+### TaggedError
+
+| Method                                     | Description                          |
+| ------------------------------------------ | ------------------------------------ |
+| `TaggedError.isError(value)`               | Type guard for Error                 |
+| `TaggedError.isTaggedError(value)`         | Type guard for TaggedError           |
+| `TaggedError.match(error, handlers)`       | Exhaustive pattern match by `_tag`   |
+| `TaggedError.matchPartial(error, h, else)` | Partial match with fallback          |
 
 ## License
 
