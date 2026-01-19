@@ -245,23 +245,108 @@ describe("Result", () => {
       ).rejects.toBeInstanceOf(Panic);
     });
 
-    it("rejected Promise from catch handler becomes error value (no Panic)", async () => {
-      // If user mistakenly returns a rejected Promise from catch, it becomes the
-      // error value directly (not awaited). This is a type error at compile time,
-      // but at runtime the rejected promise is the Err's value. No Panic occurs
-      // because Promise.reject() returns synchronously without throwing.
-      const rejectedPromise = Promise.reject(new Error("this becomes the error value"));
-      // Attach handler to prevent unhandled rejection (we're testing the value is captured)
-      rejectedPromise.catch(() => {});
+    it("rejected Promise from catch handler throws Panic", async () => {
+      // Catch handler can be async, so a rejected Promise will be awaited.
+      // A rejected promise causes Panic (catch handler failure).
+      const rejectedPromise = Promise.reject(new Error("catch handler failed"));
+      rejectedPromise.catch(() => {}); // Prevent unhandled rejection warning
 
+      await expect(
+        Result.tryPromise({
+          try: () => Promise.reject(new Error("original")),
+          catch: () => rejectedPromise,
+        }),
+      ).rejects.toBeInstanceOf(Panic);
+    });
+
+    it("supports async catch handler", async () => {
       const result = await Result.tryPromise({
         try: () => Promise.reject(new Error("original")),
-        catch: () => rejectedPromise, // wrong return type (Promise<E> vs E) - testing runtime
+        catch: async (e) => {
+          await Promise.resolve(); // Prove it's async
+          return { msg: (e as Error).message, enriched: true };
+        },
       });
       expect(Result.isError(result)).toBe(true);
       if (Result.isError(result)) {
-        expect(result.error).toBe(rejectedPromise);
+        expect(result.error).toEqual({ msg: "original", enriched: true });
       }
+    });
+
+    it("respects shouldRetry predicate", async () => {
+      let attempts = 0;
+      const result = await Result.tryPromise(
+        {
+          try: () => {
+            attempts++;
+            throw new Error(attempts === 1 ? "retryable" : "fatal");
+          },
+          catch: (e) => ({
+            retryable: (e as Error).message === "retryable",
+            msg: (e as Error).message,
+          }),
+        },
+        {
+          retry: {
+            times: 3,
+            delayMs: 1,
+            backoff: "constant",
+            shouldRetry: (e) => e.retryable,
+          },
+        },
+      );
+
+      // Tried once, retried once (retryable), stopped on non-retryable
+      expect(attempts).toBe(2);
+      expect(Result.isError(result)).toBe(true);
+      if (Result.isError(result)) {
+        expect(result.error.msg).toBe("fatal");
+      }
+    });
+
+    it("retries all errors when shouldRetry not provided", async () => {
+      let attempts = 0;
+      const result = await Result.tryPromise(
+        {
+          try: () => {
+            attempts++;
+            throw new Error("always fail");
+          },
+          catch: (e) => ({ msg: (e as Error).message }),
+        },
+        {
+          retry: {
+            times: 3,
+            delayMs: 1,
+            backoff: "constant",
+          },
+        },
+      );
+
+      // Initial + 3 retries = 4 attempts
+      expect(attempts).toBe(4);
+      expect(Result.isError(result)).toBe(true);
+    });
+
+    it("throws Panic when shouldRetry predicate throws", async () => {
+      await expect(
+        Result.tryPromise(
+          {
+            try: () => Promise.reject(new Error("fail")),
+            catch: (e) => ({ msg: (e as Error).message }),
+          },
+          {
+            retry: {
+              times: 3,
+              delayMs: 1,
+              backoff: "constant",
+              shouldRetry: () => {
+                throw new Error("predicate bug");
+              },
+            },
+          },
+        ),
+      ).rejects.toBeInstanceOf(Panic);
     });
   });
 

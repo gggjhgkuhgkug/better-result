@@ -438,23 +438,30 @@ const tryFn: {
   return result;
 };
 
-type RetryConfig = {
+type RetryConfig<E = unknown> = {
   retry?: {
     times: number;
     delayMs: number;
     backoff: "linear" | "constant" | "exponential";
+    /** Predicate to determine if an error should trigger a retry. Defaults to always retry. */
+    shouldRetry?: (error: E) => boolean;
   };
 };
 
 const tryPromise: {
-  <A>(thunk: () => Promise<A>, config?: RetryConfig): Promise<Result<A, UnhandledException>>;
+  <A>(
+    thunk: () => Promise<A>,
+    config?: RetryConfig<UnhandledException>,
+  ): Promise<Result<A, UnhandledException>>;
   <A, E>(
-    options: { try: () => Promise<A>; catch: (cause: unknown) => E },
-    config?: RetryConfig,
+    options: { try: () => Promise<A>; catch: (cause: unknown) => E | Promise<E> },
+    config?: RetryConfig<E>,
   ): Promise<Result<A, E>>;
 } = async <A, E>(
-  options: (() => Promise<A>) | { try: () => Promise<A>; catch: (cause: unknown) => E },
-  config?: RetryConfig,
+  options:
+    | (() => Promise<A>)
+    | { try: () => Promise<A>; catch: (cause: unknown) => E | Promise<E> },
+  config?: RetryConfig<E | UnhandledException>,
 ): Promise<Result<A, E | UnhandledException>> => {
   const execute = async (): Promise<Result<A, E | UnhandledException>> => {
     if (typeof options === "function") {
@@ -469,7 +476,7 @@ const tryPromise: {
     } catch (originalCause) {
       // If the user's catch handler throws, it's a defect — Panic
       try {
-        return err(options.catch(originalCause));
+        return err(await options.catch(originalCause));
       } catch (catchHandlerError) {
         throw panic("Result.tryPromise catch handler threw", catchHandlerError);
       }
@@ -497,7 +504,13 @@ const tryPromise: {
 
   let result = await execute();
 
-  for (let attempt = 0; attempt < retry.times && result.status === "error"; attempt++) {
+  const shouldRetryFn = retry.shouldRetry ?? (() => true);
+
+  for (let attempt = 0; attempt < retry.times; attempt++) {
+    if (result.status !== "error") break;
+    const error = result.error;
+    const shouldContinue = tryOrPanic(() => shouldRetryFn(error), "shouldRetry predicate threw");
+    if (!shouldContinue) break;
     await sleep(getDelay(attempt));
     result = await execute();
   }
@@ -821,11 +834,36 @@ export const Result = {
    * Executes async function, wraps result/error in Result with retry support.
    *
    * @example
-   * await Result.tryPromise(() => fetch(url))
+   * // Basic retry
+   * await Result.tryPromise(() => fetch(url), {
+   *   retry: { times: 3, delayMs: 100, backoff: "exponential" }
+   * })
+   *
+   * @example
+   * // Retry only for specific error types (user-defined TaggedError classes)
    * await Result.tryPromise({
    *   try: () => fetch(url),
-   *   catch: e => new NetworkError(e)
-   * }, { retry: { times: 3, delayMs: 100, backoff: "exponential" } })
+   *   catch: e => e instanceof TypeError ? new RetryableError(e) : new FatalError(e)
+   * }, {
+   *   retry: {
+   *     times: 3,
+   *     delayMs: 100,
+   *     backoff: "exponential",
+   *     shouldRetry: e => e._tag === "RetryableError"
+   *   }
+   * })
+   *
+   * @example
+   * // Async retry decisions: enrich error in catch handler
+   * await Result.tryPromise({
+   *   try: () => callApi(url),
+   *   catch: async (e) => {
+   *     const limited = await redis.get(`ratelimit:${userId}`);
+   *     return new ApiError({ cause: e, rateLimited: !!limited });
+   *   }
+   * }, {
+   *   retry: { times: 3, delayMs: 100, backoff: "exponential", shouldRetry: e => !e.rateLimited }
+   * })
    */
   tryPromise,
   /**
@@ -896,14 +934,26 @@ export const Result = {
   unwrapOr,
   /**
    * Generator-based composition for Result types.
+   * Errors from yielded Results form a union; use mapError to normalize.
    *
    * @example
+   * const result = Result.gen(function* () {
+   *   const a = yield* getA(); // Err: ErrorA
+   *   const b = yield* getB(a); // Err: ErrorB
+   *   return Result.ok({ a, b });
+   * });
+   * // Result<{a, b}, ErrorA | ErrorB>
+   *
+   * @example
+   * // Normalize error types with mapError
    * const result = Result.gen(function* () {
    *   const a = yield* getA();
    *   const b = yield* getB(a);
    *   return Result.ok({ a, b });
-   * });
+   * }).mapError(e => new UnifiedError(e._tag, e.message));
+   * // Result<{a, b}, UnifiedError>
    *
+   * @example
    * // Async with Result.await
    * const result = await Result.gen(async function* () {
    *   const a = yield* Result.await(fetchA());

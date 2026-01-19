@@ -152,6 +152,23 @@ const result = await Result.gen(async function* () {
 
 Errors from all yielded Results are automatically collected into the final error union type.
 
+### Normalizing Error Types
+
+Use `mapError` on the output of `Result.gen()` to unify multiple error types into a single type:
+
+```ts
+class ParseError extends TaggedError("ParseError")<{ message: string }>() {}
+class ValidationError extends TaggedError("ValidationError")<{ message: string }>() {}
+class AppError extends TaggedError("AppError")<{ source: string; message: string }>() {}
+
+const result = Result.gen(function* () {
+  const parsed = yield* parseInput(input); // Err: ParseError
+  const valid = yield* validate(parsed); // Err: ValidationError
+  return Result.ok(valid);
+}).mapError((e): AppError => new AppError({ source: e._tag, message: e.message }));
+// Result<ValidatedData, AppError> - error union normalized to single type
+```
+
 ## Retry Support
 
 ```ts
@@ -162,6 +179,66 @@ const result = await Result.tryPromise(() => fetch(url), {
     backoff: "exponential", // or "linear" | "constant"
   },
 });
+```
+
+### Conditional Retry
+
+Retry only for specific error types using `shouldRetry`:
+
+```ts
+class NetworkError extends TaggedError("NetworkError")<{ message: string }>() {}
+class ValidationError extends TaggedError("ValidationError")<{ message: string }>() {}
+
+const result = await Result.tryPromise(
+  {
+    try: () => fetchData(url),
+    catch: (e) =>
+      e instanceof TypeError // Network failures often throw TypeError
+        ? new NetworkError({ message: (e as Error).message })
+        : new ValidationError({ message: String(e) }),
+  },
+  {
+    retry: {
+      times: 3,
+      delayMs: 100,
+      backoff: "exponential",
+      shouldRetry: (e) => e._tag === "NetworkError", // Only retry network errors
+    },
+  },
+);
+```
+
+### Async Retry Decisions
+
+For retry decisions that require async operations (rate limits, feature flags, etc.), enrich the error in the `catch` handler instead of making `shouldRetry` async:
+
+```ts
+class ApiError extends TaggedError("ApiError")<{
+  message: string;
+  rateLimited: boolean;
+}>() {}
+
+const result = await Result.tryPromise(
+  {
+    try: () => callApi(url),
+    catch: async (e) => {
+      // Fetch async state in catch handler
+      const retryAfter = await redis.get(`ratelimit:${userId}`);
+      return new ApiError({
+        message: (e as Error).message,
+        rateLimited: retryAfter !== null,
+      });
+    },
+  },
+  {
+    retry: {
+      times: 3,
+      delayMs: 100,
+      backoff: "exponential",
+      shouldRetry: (e) => !e.rateLimited, // Sync predicate uses enriched error
+    },
+  },
+);
 ```
 
 ## UnhandledException
