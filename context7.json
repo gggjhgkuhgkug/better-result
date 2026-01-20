@@ -1,5 +1,4 @@
 {
-  "$schema": "https://context7.com/schema/context7.json",
   "projectTitle": "better-result",
   "description": "Lightweight TypeScript Result type with generator-based composition for functional error handling via Ok/Err discriminated union",
   "folders": ["src"],
